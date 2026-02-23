@@ -1,0 +1,32 @@
+@startuml
+
+title Context Map
+
+' BC
+rectangle "Customer BC" as customer
+rectangle "Wallet BC" as wallet
+rectangle "Payments BC" as payments
+rectangle "Notifications BC" as notifications
+rectangle "Anti-Fraud / Scoring BC" as anti_fraud
+rectangle "Merchant BC" as merchant
+rectangle "Auth BC" as auth
+
+' Внешние сервисы
+rectangle "Платёжный провайдер Ext" as payment_provider
+rectangle "Мерчанты Ext" as merchant_ext
+rectangle "Core Banking Ext" as core_banking
+
+' Связи
+payments --> wallet: U/D C/S OHS PL
+payments --> core_banking: U/D ACL
+payments --> notifications: U/D C/S PL
+payments --> anti_fraud: U/D C/S PL
+payments --> merchant: U/D C/S OHS PL
+payments --> customer: U/D C/S OHS PL
+wallet --> customer: U/D C/S OHS PL
+merchant --> merchant_ext: U/D OHS PL
+payments --> payment_provider: U/D OHS PL
+anti_fraud --> wallet: U/D C/S OHS PL
+customer --> auth: U/D C/S OHS PL
+merchant --> auth: U/D C/S OHS PL
+@enduml

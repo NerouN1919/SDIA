@@ -1,0 +1,25 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title С1 - Платёжная вертикаль банка
+
+' Клиенты
+Person(client, "Клиент", "Клиент мобильного/веб банка для физ лиц")
+Person(merchant, "Мерчант", "Клиент мобильного/веб банка для мерчантов")
+
+' Наша система
+System(payment_system, "Мобильный/веб банк", "Основная платёжная платформа банка")
+
+' Внешние системы
+System_Ext(core_banking, "Core Banking (Legacy)", "Бухгалтерский учет")
+System_Ext(merchant_system, "Мерчант-сервисы", "Внешние системы-мерчанты")
+System_Ext(ext_payment_provider, "Платёжный провайдер", "Карточный процессинг/СБП")
+
+' Связи
+Rel(client, payment_system, "Работа со счетом, платежами", "HTTPS/REST")
+Rel(merchant, payment_system, "Работа с личным кабинетом мерчанта", "HTTPS/REST")
+Rel(payment_system, merchant_system, "Уведомление о статусе платежей", "HTTPS/REST")
+Rel(payment_system, core_banking, "Информация о платежах", "HTTPS/SOAP")
+Rel(payment_system, ext_payment_provider, "Оформление платежа", "HTTPS/REST")
+
+@enduml

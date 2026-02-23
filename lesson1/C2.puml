@@ -1,0 +1,113 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title С2 - Платёжная вертикаль банка
+
+' Клиенты
+Person(client, "Клиент", "Клиент мобильного/веб банка для физ лиц")
+Person(merchant, "Мерчант", "Клиент мобильного/веб банка для мерчантов")
+
+' Основная система
+Boundary(payment_system, "") {
+
+  Container(api_gateway, "API Gateway", "Traefik", "Шлюз API, безопасность, маршрутизация, отказоустойчивость")
+
+  Container(users_front, "Web-Front", "SPA/React", "Веб-интерфейс для физ лиц")
+  Container(merchant_front, "Web-Front", "SPA/React", "Веб-интерфейс для мерчантов")
+
+  Boundary(auth_bc, "Auth BC") {
+    Container(auth_service, "Auth Service", "Java/Spring", "Сервис авторизации/аутентификации")
+    ContainerDb(auth_db, "Auth DB", "PostgreSQL", "База данных авторизации/аутентификации")
+  }
+
+  Boundary(customer_bc, "Customer BC") {
+    Container(users_service, "User Service", "Java/Spring", "API для данных о клиенте")
+    ContainerDb(users_db, "User DB", "PostgreSQL", "База данных пользователей")
+  }
+
+  Boundary(wallet_bc, "Wallet BC") {
+    Container(wallet_service, "Wallet Service", "Java/Spring", "API для счета пользователя")
+    ContainerDb(wallet_db, "Wallet DB", "PostgreSQL", "База данных счета пользователя")
+  }
+
+  Boundary(payment_bc, "Payment BC") {
+    Container(payment_service, "Payment Service", "Java/Spring", "API для платежей")
+    Container(analytic_payment_service, "Analytic Payment Service", "Java/Spring", "API для аналитики платежей")
+    ContainerQueue(analytic_payment_kafka, "Broker", "Apache Kafka", "Сообщения о платежах")
+    Container(acl_payment_service, "ACL Service", "Java/Spring", "Антикоррупционный слой")
+    ContainerDb(payment_db, "Payment DB", "PostgreSQL", "База данных платежей")
+    ContainerDb(analytic_payment_db, "Analytic Payment DB", "ClickHouse", "База данных аналитики платежей")
+  }
+
+  Boundary(merchant_bc, "Merchant BC") {
+    Container(merchant_service, "Merchant Service", "Java/Spring", "API для мерчантов")
+    Container(merchant_callback_service, "Callback Service", "Java/Spring", "Сервис для Callback мерчантов")
+    ContainerQueue(merchant_kafka, "Broker", "Apache Kafka", "Сообщения о статусе платежа для мерчанта")
+    ContainerDb(merchant_db, "Merchant DB", "PostgreSQL", "База данных мерчантов")
+  }
+
+  Boundary(notifications_bc, "Notifications BC") {
+    Container(notifications_service, "Notifications Service", "Java/Spring", "API для уведомлений пользователю")
+    Container(smtp_notification_server, "SMTP Server", "Outlook", "Почтовый сервер для отправки уведомлений по почте")
+    ContainerQueue(notification_rabbit, "Broker", "RabbitMq", "Сообщения об уведомлении пользователей")
+  }
+
+  Boundary(antifraud_bc, "Anti-Fraud / Scoring BC") {
+    Container(antifraud_service, "Anti-Fraud / Scoring Service", "Python/Fast API", "API проверки платежа")
+    ContainerQueue(antifraud_kafka, "Broker", "Apache Kafka", "Информация о платеже")
+    ContainerDb(antifraud_db, "Anti-Fraud / Scoring DB", "PostgreSQL", "База данных анти-фрода и скоринга")
+  }
+} 
+
+' Внешние системы
+System_Ext(core_banking, "Core Banking (Legacy)", "Бухгалтерский учет")
+System_Ext(merchant_system, "Мерчант-сервисы", "Внешние системы-мерчанты")
+System_Ext(ext_payment_provider, "Платёжный провайдер", "Карточный процессинг/СБП")
+
+' Связи
+Rel(users_front, api_gateway, "API вызовы", "HTTPS/REST")
+Rel(merchant_front, api_gateway, "API вызовы", "HTTPS/REST")
+Rel(client, users_front, "Работа с пользователями/платежами", "HTTPS/REST")
+Rel(merchant, merchant_front, "Работа с мерчантами", "HTTPS/REST")
+Rel(wallet_service, users_service, "Привязка счета к пользователю", "HTTPS/gRpc")
+Rel(acl_payment_service, core_banking, "Отправка информации о платеже для ведения бух учета", "HTTPS/SOAP")
+Rel(merchant_callback_service, merchant_service, "Получение Callback URL", "HTTPS/gRpc")
+Rel(merchant_callback_service, merchant_kafka, "Получение статуса платежа", "TLS/TCP")
+Rel(merchant_callback_service, merchant_system, "Callback о платеже", "HTTPS/REST")
+Rel(notifications_service, notification_rabbit, "Получение уведомления о платеже", "AMQP")
+Rel(notifications_service, smtp_notification_server, "Отправить уведомление", "SMTP")
+Rel(analytic_payment_service, analytic_payment_kafka, "Получить информацию о платеже", "TLS/TCP")
+Rel(users_service, auth_service, "Регистрация", "HTTPS/gRpc")
+Rel(merchant_service, auth_service, "Регистрация", "HTTPS/gRpc")
+Rel(merchant_system, api_gateway, "Создание платежа", "HTTPS/REST")
+
+' Связи Payment BC
+Rel(payment_service, wallet_service, "Списание/зачисление средств", "HTTPS/gRpc")
+Rel(payment_service, acl_payment_service, "Отправка информации о платеже для ведения бух учета", "HTTPS/REST")
+Rel(payment_service, ext_payment_provider, "Оформление платежа", "HTTPS/REST")
+Rel(payment_service, merchant_kafka, "Отправка статуса платежа", "TLS/TCP")
+Rel(payment_service, notification_rabbit, "Отправка уведомления о платеже", "AMQP")
+Rel(payment_service, antifraud_kafka, "Отправить сообщение о платеже", "TLS/TCP")
+Rel(payment_service, analytic_payment_kafka, "Отправить информацию о платеже", "TLS/TCP")
+
+' Связи Antifraud BC
+Rel(antifraud_service, antifraud_kafka, "Получить сообщение о платеже", "TLS/TCP")
+Rel(antifraud_service, wallet_service, "Блокировка счёта", "HTTPS")
+
+'Связи Gateway
+Rel(api_gateway, users_service, "Пересылает запросы ЛК пользователя", "HTTPS/REST")
+Rel(api_gateway, wallet_service, "Пересылает запросы счета пользователя", "HTTPS/REST")
+Rel(api_gateway, payment_service, "Пересылает запросы платежей", "HTTPS/REST")
+Rel(api_gateway, merchant_service, "Пересылает запросы ЛК мерчантов", "HTTPS/REST")
+Rel(api_gateway, auth_service, "Авторизации/Аутентификация с JWT", "HTTPS/gRpc")
+
+' Связи БД
+Rel(users_service, users_db, "Данные о пользователе", "JDBC")
+Rel(wallet_service, wallet_db, "Данные о счете пользователя", "JDBC")
+Rel(payment_service, payment_db, "Данные платежей", "JDBC")
+Rel(merchant_service, merchant_db, "Данные мерчантов", "JDBC")
+Rel(antifraud_service, antifraud_db, "Данные результата проверки", "DB-API 2.0")
+Rel(analytic_payment_service, analytic_payment_db, "Аналитика по платежам", "JDBC")
+Rel(auth_service, auth_db, "Креды пользователей", "JDBC")
+
+@enduml
