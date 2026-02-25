@@ -17,16 +17,16 @@ rectangle "Мерчанты Ext" as merchant_ext
 rectangle "Core Banking Ext" as core_banking
 
 ' Связи
-payments --> wallet: U/D C/S OHS PL
+payments --> wallet: U/D C/S
 payments --> core_banking: U/D ACL
-payments --> notifications: U/D C/S PL
-payments --> anti_fraud: U/D C/S PL
-payments --> merchant: U/D C/S OHS PL
-payments --> customer: U/D C/S OHS PL
-wallet --> customer: U/D C/S OHS PL
+payments --> notifications: U/D PL
+payments --> anti_fraud: U/D C/S
+payments --> merchant: U/D C/S
+payments --> customer: U/D C/S
+wallet --> customer: U/D C/S
 merchant --> merchant_ext: U/D OHS PL
 payments --> payment_provider: U/D OHS PL
-anti_fraud --> wallet: U/D C/S OHS PL
-customer --> auth: U/D C/S OHS PL
-merchant --> auth: U/D C/S OHS PL
+anti_fraud --> wallet: U/D C/S
+customer --> auth: U/D C/S
+merchant --> auth: U/D C/S
 @enduml

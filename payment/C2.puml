@@ -15,6 +15,10 @@ Boundary(payment_system, "") {
   Container(users_front, "Web-Front", "SPA/React", "Веб-интерфейс для физ лиц")
   Container(merchant_front, "Web-Front", "SPA/React", "Веб-интерфейс для мерчантов")
 
+  ContainerQueue(kafka, "Broker", "Apache Kafka", "Kafka брокер")
+  ContainerQueue(rabbit, "Broker", "RabbitMq", "RabbitMQ брокер")
+
+
   Boundary(auth_bc, "Auth BC") {
     Container(auth_service, "Auth Service", "Java/Spring", "Сервис авторизации/аутентификации")
     ContainerDb(auth_db, "Auth DB", "PostgreSQL", "База данных авторизации/аутентификации")
@@ -33,7 +37,6 @@ Boundary(payment_system, "") {
   Boundary(payment_bc, "Payment BC") {
     Container(payment_service, "Payment Service", "Java/Spring", "API для платежей")
     Container(analytic_payment_service, "Analytic Payment Service", "Java/Spring", "API для аналитики платежей")
-    ContainerQueue(analytic_payment_kafka, "Broker", "Apache Kafka", "Сообщения о платежах")
     Container(acl_payment_service, "ACL Service", "Java/Spring", "Антикоррупционный слой")
     ContainerDb(payment_db, "Payment DB", "PostgreSQL", "База данных платежей")
     ContainerDb(analytic_payment_db, "Analytic Payment DB", "ClickHouse", "База данных аналитики платежей")
@@ -42,19 +45,16 @@ Boundary(payment_system, "") {
   Boundary(merchant_bc, "Merchant BC") {
     Container(merchant_service, "Merchant Service", "Java/Spring", "API для мерчантов")
     Container(merchant_callback_service, "Callback Service", "Java/Spring", "Сервис для Callback мерчантов")
-    ContainerQueue(merchant_kafka, "Broker", "Apache Kafka", "Сообщения о статусе платежа для мерчанта")
     ContainerDb(merchant_db, "Merchant DB", "PostgreSQL", "База данных мерчантов")
   }
 
   Boundary(notifications_bc, "Notifications BC") {
     Container(notifications_service, "Notifications Service", "Java/Spring", "API для уведомлений пользователю")
     Container(smtp_notification_server, "SMTP Server", "Outlook", "Почтовый сервер для отправки уведомлений по почте")
-    ContainerQueue(notification_rabbit, "Broker", "RabbitMq", "Сообщения об уведомлении пользователей")
   }
 
   Boundary(antifraud_bc, "Anti-Fraud / Scoring BC") {
     Container(antifraud_service, "Anti-Fraud / Scoring Service", "Python/Fast API", "API проверки платежа")
-    ContainerQueue(antifraud_kafka, "Broker", "Apache Kafka", "Информация о платеже")
     ContainerDb(antifraud_db, "Anti-Fraud / Scoring DB", "PostgreSQL", "База данных анти-фрода и скоринга")
   }
 } 
@@ -72,11 +72,11 @@ Rel(merchant, merchant_front, "Работа с мерчантами", "HTTPS/RES
 Rel(wallet_service, users_service, "Привязка счета к пользователю", "HTTPS/gRpc")
 Rel(acl_payment_service, core_banking, "Отправка информации о платеже для ведения бух учета", "HTTPS/SOAP")
 Rel(merchant_callback_service, merchant_service, "Получение Callback URL", "HTTPS/gRpc")
-Rel(merchant_callback_service, merchant_kafka, "Получение статуса платежа", "TLS/TCP")
+Rel(merchant_callback_service, kafka, "Получение статуса платежа", "TLS/TCP")
 Rel(merchant_callback_service, merchant_system, "Callback о платеже", "HTTPS/REST")
-Rel(notifications_service, notification_rabbit, "Получение уведомления о платеже", "AMQP")
+Rel(notifications_service, rabbit, "Получение уведомления о платеже", "AMQP")
 Rel(notifications_service, smtp_notification_server, "Отправить уведомление", "SMTP")
-Rel(analytic_payment_service, analytic_payment_kafka, "Получить информацию о платеже", "TLS/TCP")
+Rel(analytic_payment_service, kafka, "Получить информацию о платеже", "TLS/TCP")
 Rel(users_service, auth_service, "Регистрация", "HTTPS/gRpc")
 Rel(merchant_service, auth_service, "Регистрация", "HTTPS/gRpc")
 Rel(merchant_system, api_gateway, "Создание платежа", "HTTPS/REST")
@@ -85,21 +85,21 @@ Rel(merchant_system, api_gateway, "Создание платежа", "HTTPS/REST
 Rel(payment_service, wallet_service, "Списание/зачисление средств", "HTTPS/gRpc")
 Rel(payment_service, acl_payment_service, "Отправка информации о платеже для ведения бух учета", "HTTPS/REST")
 Rel(payment_service, ext_payment_provider, "Оформление платежа", "HTTPS/REST")
-Rel(payment_service, merchant_kafka, "Отправка статуса платежа", "TLS/TCP")
-Rel(payment_service, notification_rabbit, "Отправка уведомления о платеже", "AMQP")
-Rel(payment_service, antifraud_kafka, "Отправить сообщение о платеже", "TLS/TCP")
-Rel(payment_service, analytic_payment_kafka, "Отправить информацию о платеже", "TLS/TCP")
+Rel(payment_service, kafka, "Отправка статуса платежа", "TLS/TCP")
+Rel(payment_service, rabbit, "Отправка уведомления о платеже", "AMQP")
+Rel(payment_service, kafka, "Отправить сообщение о платеже", "TLS/TCP")
+Rel(payment_service, kafka, "Отправить информацию о платеже", "TLS/TCP")
 
 ' Связи Antifraud BC
-Rel(antifraud_service, antifraud_kafka, "Получить сообщение о платеже", "TLS/TCP")
-Rel(antifraud_service, wallet_service, "Блокировка счёта", "HTTPS")
+Rel(antifraud_service, kafka, "Получить сообщение о платеже", "TLS/TCP")
+Rel(antifraud_service, wallet_service, "Блокировка счёта", "HTTPS/gRpc с mTLS")
 
 'Связи Gateway
 Rel(api_gateway, users_service, "Пересылает запросы ЛК пользователя", "HTTPS/REST")
 Rel(api_gateway, wallet_service, "Пересылает запросы счета пользователя", "HTTPS/REST")
 Rel(api_gateway, payment_service, "Пересылает запросы платежей", "HTTPS/REST")
 Rel(api_gateway, merchant_service, "Пересылает запросы ЛК мерчантов", "HTTPS/REST")
-Rel(api_gateway, auth_service, "Авторизации/Аутентификация с JWT", "HTTPS/gRpc")
+Rel(api_gateway, auth_service, "Аутентификация", "HTTPS/gRpc")
 
 ' Связи БД
 Rel(users_service, users_db, "Данные о пользователе", "JDBC")
