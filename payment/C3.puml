@@ -1,0 +1,72 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title С3 - Платёжная вертикаль банка
+
+Container_Boundary(wallet, "Wallet Service") {
+  Component(wallet_rest_controller, "Wallet REST Controller", "Spring Controller", "Принимает запросы по балансу")
+  Component(wallet_grpc_controller, "Wallet gRpc Controller", "Spring Controller", "Принимает запросы по балансу")
+  Component(wallet_service, "Wallet Service", "Spring Service", "Бизнес логика обработки баланса")
+  Component(wallet_repository, "Wallet Repository", "JPA Repository", "Составляет запрос к БД к основным сущностям")
+  Component(wallet_outbox_repository, "Wallet Outbox Repository", "JPA Repository", "Составляет запрос к БД для outbox")
+  Component(wallet_consumer, "Wallet Consumer", "Spring Kafka Consumer", "Чтение PaymentResult событий")
+  Component(wallet_user_client, "User Client", "Feign", "Запросы к User микросервису")
+}
+
+Container_Boundary(transaction, "Transaction Service") {
+  Component(transaction_rest_controller, "Transaction REST Controller", "Spring Controller", "Принимает запросы по платежам")
+  Component(transaction_service, "Transaction Service", "Spring Service", "Бизнес логика обработки платежей")
+  Component(transaction_repository, "Transaction Repository", "JPA Repository", "Запись платежей в БД")
+  Component(transaction_consumer, "Transaction Consumer", "Spring Kafka Consumer", "Чтение PaymentInitiated, ProviderCallbackReceived событий")
+  Component(transaction_acl_client, "ACL Client", "Feign", "Запросы к ACL микросервису")
+  Component(transaction_payment_provider_client, "Payment Provider Client", "Feign", "Запросы к Payment Provider микросервису")
+  Component(transaction_outbox_payment_result_repository, "Outbox Payment Result Repository", "JPA Repository", "Запись Outbox PaymentResult события")
+}
+
+Container_Boundary(transaction_query, "Transaction Query Service") {
+  Component(transaction_query_rest_controller, "Transaction Query gRpc Controller", "Spring Controller", "Принимает запросы по платежам")
+  Component(transaction_query_service, "Transaction Query Service", "Spring Service", "Бизнес логика сохранения платежей")
+  Component(transaction_query_repository, "Transaction Query Repository", "JPA Repository", "Запись и чтение платежей из БД")
+  Component(transaction_query_consumer, "Transaction Query Consumer", "Spring Kafka Consumer", "Чтение PaymentInitiated, PaymentCompleted, PaymentFailed событий")
+}
+
+ContainerDb(wallet_db, "Wallet DB", "PostgreSQL", "Баланс, операции, outbox истории транзакций")
+ContainerQueue(kafka, "Kafka", "Broker", "Эвенты по транзакциям")
+Container(users_service, "User Service", "Java/Spring", "API для данных о клиенте")
+ContainerDb(transaction_db, "Transaction DB", "PostgreSQL", "База данных платежей")
+Container(acl_transaction_service, "ACL Service", "Java/Spring", "Антикоррупционный слой")
+System_Ext(ext_payment_provider, "Платёжный провайдер", "Карточный процессинг/СБП")
+ContainerDb(transaction_query_db, "Transaction Query DB", "ElasticSearch", "База данных для чтения данных о платежах")
+
+' Wallet
+Rel(wallet_rest_controller, wallet_service, "Вызывате необходимый метод сервиса")
+Rel(wallet_grpc_controller, wallet_service, "Вызывате необходимый метод сервиса")
+Rel(wallet_service, wallet_repository, "Вызывает небходимы метод репозитория")
+Rel(wallet_repository, wallet_db, "Делает запрос к БД", "JDBC")
+Rel(wallet_consumer, kafka, "Читает события")
+Rel(wallet_consumer, wallet_service, "Обработка события")
+Rel(wallet_user_client, users_service, "Привязка счета к пользователю")
+Rel(wallet_service, wallet_outbox_repository, "Запись данных в outbox историй транзакций")
+Rel(wallet_service, wallet_user_client, "Формирование запроса к сервису пользователей")
+
+' Transaction
+Rel(transaction_rest_controller, transaction_service, "Вызывате необходимый метод сервиса")
+Rel(transaction_service, transaction_repository, "Вызывает небходимы метод репозитория")
+Rel(transaction_repository, transaction_db, "Делает запрос к БД", "JDBC")
+Rel(transaction_consumer, kafka, "Читает события")
+Rel(transaction_consumer, transaction_service, "Обработка события")
+Rel(transaction_service, transaction_acl_client, "Формирование запроса бух учета")
+Rel(transaction_acl_client, acl_transaction_service, "Вызовы бух учета")
+Rel(transaction_service, transaction_payment_provider_client, "Формирование запроса платежа")
+Rel(transaction_payment_provider_client, ext_payment_provider, "Вызов обработки платежа")
+Rel(transaction_service, transaction_outbox_payment_result_repository, "Формирование запроса в бд для outbox")
+Rel(transaction_outbox_payment_result_repository, transaction_db, "Делает запрос к БД", "JDBC")
+
+' Transaction Query
+Rel(transaction_query_rest_controller, transaction_query_service, "Вызывате необходимый метод сервиса")
+Rel(transaction_query_service, transaction_query_repository, "Вызывает небходимы метод репозитория")
+Rel(transaction_query_repository, transaction_query_db, "Делает запрос к БД", "JDBC")
+Rel(transaction_query_consumer, transaction_query_service, "Обработка события")
+Rel(transaction_query_consumer, kafka, "Читает события")
+
+@enduml

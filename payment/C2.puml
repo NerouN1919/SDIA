@@ -15,9 +15,10 @@ Boundary(payment_system, "") {
   Container(users_front, "Web-Front", "SPA/React", "Веб-интерфейс для физ лиц")
   Container(merchant_front, "Web-Front", "SPA/React", "Веб-интерфейс для мерчантов")
 
-  ContainerQueue(kafka, "Broker", "Apache Kafka", "Kafka брокер")
-  ContainerQueue(rabbit, "Broker", "RabbitMq", "RabbitMQ брокер")
-
+  Boundary(rabbit_bc, "Rabbit") {
+    ContainerQueue(rabbit, "Broker", "RabbitMq", "RabbitMQ брокер")
+    Container(debezium_rabbit, "CDC Worker", "Debezium", "Вычитка записей из WAL и пуш в Redis")
+  }
 
   Boundary(auth_bc, "Auth BC") {
     Container(auth_service, "Auth Service", "Java/Spring", "Сервис авторизации/аутентификации")
@@ -34,12 +35,13 @@ Boundary(payment_system, "") {
     ContainerDb(wallet_db, "Wallet DB", "PostgreSQL", "База данных счета пользователя")
   }
 
-  Boundary(payment_bc, "Payment BC") {
-    Container(payment_service, "Payment Service", "Java/Spring", "API для платежей")
-    Container(analytic_payment_service, "Analytic Payment Service", "Java/Spring", "API для аналитики платежей")
-    Container(acl_payment_service, "ACL Service", "Java/Spring", "Антикоррупционный слой")
-    ContainerDb(payment_db, "Payment DB", "PostgreSQL", "База данных платежей")
-    ContainerDb(analytic_payment_db, "Analytic Payment DB", "ClickHouse", "База данных аналитики платежей")
+  Boundary(transaction_bc, "Transaction BC") {
+    Container(transaction_service, "Transaction Service", "Java/Spring", "API для платежей")
+    Container(analytic_transaction_service, "Analytic Transaction Service", "Java/Spring", "API для аналитики платежей")
+    Container(transaction_query_service, "Transaction Query Service", "Java/Spring", "API для read запросов платежей")
+    Container(acl_transaction_service, "ACL Service", "Java/Spring", "Антикоррупционный слой")
+    ContainerDb(transaction_db, "Transaction DB", "PostgreSQL", "База данных платежей")
+    ContainerDb(transaction_query_db, "Transaction Query DB", "ElasticSearch", "База данных для чтения данных о платежах")
   }
 
   Boundary(merchant_bc, "Merchant BC") {
@@ -57,6 +59,22 @@ Boundary(payment_system, "") {
     Container(antifraud_service, "Anti-Fraud / Scoring Service", "Python/Fast API", "API проверки платежа")
     ContainerDb(antifraud_db, "Anti-Fraud / Scoring DB", "PostgreSQL", "База данных анти-фрода и скоринга")
   }
+
+  Boundary(orchestrator_bc, "Orchestrator BC") {
+    Container(orchestrator_service, "Orchestrator-Service", "Java/Spring", "Маршрутизации CQRS")
+    Container(camunda, "Orchestrator", "Camunda", "Оркестрация транзакций")
+    ContainerDb(camunda_elastic, "Orchestrator DB", "Elasticsearch", "БД для задач")
+  }
+
+  Boundary(kafka_bc, "Kafka") {
+    Container(kafka, "Broker Kafka", "Kafka", "Эвенты по транзакциям")
+    Container(debezium, "CDC Worker", "Debezium", "Вычитка записей из WAL и пуш в Kafka")
+  }
+
+  Boundary(callback_provider_bc, "Callback Provider BC") {
+    Container(callback_provider_service, "Callback Provider Service", "Java/Spring", "Callback API для провайдеров")
+    ContainerDb(callback_provider_db, "Callback Provider DB", "PostgreSQL", "Данные о платежах, направленных к провайдеру")
+  }
 } 
 
 ' Внешние системы
@@ -69,26 +87,36 @@ Rel(users_front, api_gateway, "API вызовы", "HTTPS/REST")
 Rel(merchant_front, api_gateway, "API вызовы", "HTTPS/REST")
 Rel(client, users_front, "Работа с пользователями/платежами", "HTTPS/REST")
 Rel(merchant, merchant_front, "Работа с мерчантами", "HTTPS/REST")
-Rel(wallet_service, users_service, "Привязка счета к пользователю", "HTTPS/gRpc")
-Rel(acl_payment_service, core_banking, "Отправка информации о платеже для ведения бух учета", "HTTPS/SOAP")
+Rel(acl_transaction_service, core_banking, "Отправка информации о платеже для ведения бух учета", "HTTPS/SOAP")
+Rel(notifications_service, rabbit, "Получение эвентов NotificationSent", "AMQP")
+Rel(notifications_service, smtp_notification_server, "Отправить уведомление", "SMTP")
+Rel(merchant_system, api_gateway, "Создание платежа", "HTTPS/REST")
+Rel(ext_payment_provider, api_gateway, "Callback по платежу", "HTTPS/REST")
+
+' Merchant BC
 Rel(merchant_callback_service, merchant_service, "Получение Callback URL", "HTTPS/gRpc")
 Rel(merchant_callback_service, kafka, "Получение статуса платежа", "TLS/TCP")
 Rel(merchant_callback_service, merchant_system, "Callback о платеже", "HTTPS/REST")
-Rel(notifications_service, rabbit, "Получение уведомления о платеже", "AMQP")
-Rel(notifications_service, smtp_notification_server, "Отправить уведомление", "SMTP")
-Rel(analytic_payment_service, kafka, "Получить информацию о платеже", "TLS/TCP")
-Rel(users_service, auth_service, "Регистрация", "HTTPS/gRpc")
 Rel(merchant_service, auth_service, "Регистрация", "HTTPS/gRpc")
-Rel(merchant_system, api_gateway, "Создание платежа", "HTTPS/REST")
+Rel(merchant_service, merchant_db, "Данные мерчантов", "JDBC")
 
-' Связи Payment BC
-Rel(payment_service, wallet_service, "Списание/зачисление средств", "HTTPS/gRpc")
-Rel(payment_service, acl_payment_service, "Отправка информации о платеже для ведения бух учета", "HTTPS/REST")
-Rel(payment_service, ext_payment_provider, "Оформление платежа", "HTTPS/REST")
-Rel(payment_service, kafka, "Отправка статуса платежа", "TLS/TCP")
-Rel(payment_service, rabbit, "Отправка уведомления о платеже", "AMQP")
-Rel(payment_service, kafka, "Отправить сообщение о платеже", "TLS/TCP")
-Rel(payment_service, kafka, "Отправить информацию о платеже", "TLS/TCP")
+' User BC
+Rel(users_service, auth_service, "Регистрация", "HTTPS/gRpc")
+Rel(users_service, users_db, "Данные о пользователе", "JDBC")
+
+' Wallet BC
+Rel(wallet_service, users_service, "Привязка счета к пользователю", "HTTPS/gRpc")
+Rel(wallet_service, wallet_db, "Обновить баланс/записать транзакицю", "JDBC")
+Rel(wallet_service, kafka, "Читает PaymentResult событие", "TLS/TCP")
+
+' Связи Transaction BC
+Rel(transaction_service, kafka, "Получение события PaymentInitiated, ProviderCallbackReceived")
+Rel(transaction_service, acl_transaction_service, "Отправка информации о платеже для ведения бух учета", "HTTPS/REST")
+Rel(transaction_service, ext_payment_provider, "Оформление платежа", "HTTPS/REST")
+Rel(analytic_transaction_service, transaction_query_service, "Данные о платежах для аналитики", "HTTPS/gRpc")
+Rel(transaction_service, transaction_db, "Данные состояния платежей", "JDBC")
+Rel(transaction_query_service, transaction_query_db, "Данные о платежах", "JDBC")
+Rel(transaction_query_service, kafka, "Получает события PaymentInitiated, PaymentCompleted, PaymentFailed")
 
 ' Связи Antifraud BC
 Rel(antifraud_service, kafka, "Получить сообщение о платеже", "TLS/TCP")
@@ -96,18 +124,33 @@ Rel(antifraud_service, wallet_service, "Блокировка счёта", "HTTPS
 
 'Связи Gateway
 Rel(api_gateway, users_service, "Пересылает запросы ЛК пользователя", "HTTPS/REST")
-Rel(api_gateway, wallet_service, "Пересылает запросы счета пользователя", "HTTPS/REST")
-Rel(api_gateway, payment_service, "Пересылает запросы платежей", "HTTPS/REST")
-Rel(api_gateway, merchant_service, "Пересылает запросы ЛК мерчантов", "HTTPS/REST")
+Rel(api_gateway, orchestrator_bc, "Пересылает запросы", "HTTPS/REST")
 Rel(api_gateway, auth_service, "Аутентификация", "HTTPS/gRpc")
+Rel(api_gateway, callback_provider_service, "Пересылает запросы", "HTTPS/REST")
+
+' Связи Orchestrator BC
+Rel(orchestrator_service, camunda, "Проверяет наличие задач для обработки", "HTTPS/gRpc")
+Rel(camunda, camunda_elastic, "Получить список задач", "HTTPS/REST")
+Rel(orchestrator_service, wallet_service, "Действия с балансом/записью транзакции")
+Rel(orchestrator_service, transaction_service, "Write действия с платежами")
+Rel(orchestrator_service, merchant_service, "Действия с мерчантами")
+Rel(orchestrator_service, transaction_query_service, "Read запросы по платежам", "HTTPS/REST")
+
+' Связи Kafka BC
+Rel(debezium, wallet_db, "Вычитка outbox записей PaymentInitiated, PaymentCompleted/PaymentFailed", "JDBC")
+Rel(debezium, transaction_db, "Вычитка outbox записей PaymentResult, ProviderCallbackReceived", "JDBC")
+Rel(debezium, kafka, "Пуш событий в Kafka", "TLS/TCP")
+
+' Связи Rabbit BC
+Rel(debezium_rabbit, rabbit, "Пуш событий в Rabbit", "AMQP")
+Rel(debezium_rabbit, transaction_db, "Вычитка outbox записей NotificationSent")
+
+' Callback Provider BC
+Rel(callback_provider_service, transaction_service, "Результат от провайдера", "HTTPS/gRpc")
+Rel(callback_provider_service, callback_provider_db, "Сохраняет данные callback вызовов")
 
 ' Связи БД
-Rel(users_service, users_db, "Данные о пользователе", "JDBC")
-Rel(wallet_service, wallet_db, "Данные о счете пользователя", "JDBC")
-Rel(payment_service, payment_db, "Данные платежей", "JDBC")
-Rel(merchant_service, merchant_db, "Данные мерчантов", "JDBC")
 Rel(antifraud_service, antifraud_db, "Данные результата проверки", "DB-API 2.0")
-Rel(analytic_payment_service, analytic_payment_db, "Аналитика по платежам", "JDBC")
 Rel(auth_service, auth_db, "Креды пользователей", "JDBC")
 
 @enduml
