@@ -19,7 +19,7 @@ Table wallet_transactions {
 Table wallet_outbox {
   id uuid [pk]
   transaction_id uuid [not null]
-  event_type varchar [not null, note: 'PaymentInitiated, PaymentCompleted, NotificationSent']
+  event_type varchar [not null, note: 'PaymentInitiated, PaymentCompleted, PaymentFailed, NotificationSent']
   payload jsonb [not null]
 }
 

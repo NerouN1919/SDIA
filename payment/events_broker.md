@@ -10,6 +10,7 @@ Rabbit топики: notification.sent(NotificationSent)
 Идемпотентность - wallet_transactions.id
 ```json
 {
+  "payment_id": "uuid",
   "walletTransactionId": "uuid",
   "walletId": "uuid",
   "userId": "uuid",

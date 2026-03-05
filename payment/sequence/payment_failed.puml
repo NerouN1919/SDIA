@@ -1,7 +1,9 @@
 @startuml
-title Sequence: Основной успешный сценарий
+title Sequence: Основной неуспешный сценарий по таймауту провайдера
 
 actor client
+participant "API Gateway" as api_gateway
+participant "Orchestrator" as orchestrator
 participant "Wallet Service" as wallet_service
 database "Wallet DB" as wallet_db
 participant "Debezium For Kafka" as kafka_debezium
@@ -17,7 +19,10 @@ participant "Transaction Query Service" as transaction_query_service
 database "ElasticSearch" as elasticsearch
 
 == Инициализация платежа ==
-client -> wallet_service: Провести платеж
+client -> api_gateway: Провести платеж
+api_gateway -> api_gateway: Аутентификация, Rate Limiting, Circuit Breaker
+api_gateway -> orchestrator: Маршрутизация запроса
+orchestrator -> wallet_service: Провести платеж
 wallet_service -> wallet_db: Select баланса
 wallet_db -> wallet_service: баланс пользователя
 wallet_service -> wallet_db: резервирование суммы на балансе
@@ -41,6 +46,7 @@ transaction_service -> banking_core: Бух учет платежа
 banking_core -> transaction_service: OK ответ
 transaction_service -> payment_provider: Отправил запрос внешнему провайдеру на создание платежа
 payment_provider -> transaction_service: Ошибка по таймауту
+transaction_service -> transaction_db: Создание записи со статусом ошибки
 transaction_service -> transaction_db: создание записи в outbox PaymentResult со статусом ошибки
 
 == Обработка PaymentResult outbox ==

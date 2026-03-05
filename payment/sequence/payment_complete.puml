@@ -2,6 +2,8 @@
 title Sequence: Основной успешный сценарий
 
 actor client
+participant "API Gateway" as api_gateway
+participant "Orchestrator" as orchestrator
 participant "Wallet Service" as wallet_service
 database "Wallet DB" as wallet_db
 participant "Debezium For Kafka" as kafka_debezium
@@ -18,7 +20,10 @@ participant "Transaction Query Service" as transaction_query_service
 database "ElasticSearch" as elasticsearch
 
 == Инициализация платежа ==
-client -> wallet_service: Провести платеж
+client -> api_gateway: Провести платеж
+api_gateway -> api_gateway: Аутентификация, Rate Limiting, Circuit Breaker
+api_gateway -> orchestrator: Маршрутизация запроса
+orchestrator -> wallet_service: Провести платеж
 wallet_service -> wallet_db: Select баланса
 wallet_db -> wallet_service: баланс пользователя
 wallet_service -> wallet_db: резервирование суммы на балансе
@@ -45,7 +50,9 @@ payment_provider -> transaction_service: Возвращает внутренни
 transaction_service -> transaction_db: сохранить платеж с paymentId от провайдера
 
 == Получение и обработка Callback от Payment Provider ==
-payment_provider -> callback_provider_service: Callback с результатом оформления платежа
+payment_provider -> api_gateway: Callback с результатом оформления платежа
+api_gateway -> api_gateway: Rate Limiting
+api_gateway -> callback_provider_service: Callback с результатом оформления платежа
 callback_provider_service -> callback_provider_service: Валидация HMAC
 callback_provider_service -> transaction_service: Отправляет успешный результат работы платежного провайдера
 
@@ -84,7 +91,5 @@ kafka_debezium -> kafka: Кладет PaymentCompleted событие в Kafka
 transaction_query_service -> kafka: Получить PaymentCompleted события
 kafka -> transaction_query_service: Возвращает PaymentCompleted события
 transaction_query_service -> elasticsearch: Обновить информацию о платеже
-
-
 
 @enduml
