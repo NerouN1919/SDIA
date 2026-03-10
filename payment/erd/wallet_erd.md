@@ -21,6 +21,7 @@ Table wallet_outbox {
   transaction_id uuid [not null]
   event_type varchar [not null, note: 'PaymentInitiated, PaymentCompleted, PaymentFailed, NotificationSent']
   payload jsonb [not null]
+  trace_id uuid
 }
 
 Ref: wallet_transactions.wallet_id > wallet.id

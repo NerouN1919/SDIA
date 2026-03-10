@@ -14,7 +14,8 @@ Rabbit топики: notification.sent(NotificationSent)
   "walletTransactionId": "uuid",
   "walletId": "uuid",
   "userId": "uuid",
-  "amount": 0.00
+  "amount": 0.00,
+  "trace_id": "uuid"
 }
 ```
 
@@ -26,7 +27,8 @@ Rabbit топики: notification.sent(NotificationSent)
   "paymentId": "uuid",
   "externalPaymentId": "",
   "status": "SUCCESS",
-  "failureReason": null
+  "failureReason": null,
+  "trace_id": "uuid"
 }
 ```
 
@@ -40,7 +42,8 @@ Rabbit топики: notification.sent(NotificationSent)
   "paymentId": "uuid",
   "amount": 200.00,
   "finalStatus": "COMPLETED",
-  "failureReason": ""
+  "failureReason": "",
+  "trace_id": "uuid"
 }
 ```
 
@@ -52,6 +55,7 @@ Rabbit топики: notification.sent(NotificationSent)
   "walletTransactionId": "uuid",
   "amount": 200.00,
   "finalStatus": "COMPLETED",
-  "message": "Платёж на сумму 200.00 RUB успешно выполнен"
+  "message": "Платёж на сумму 200.00 RUB успешно выполнен",
+  "trace_id": "uuid"
 }
 ```
