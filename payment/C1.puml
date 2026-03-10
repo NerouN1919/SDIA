@@ -21,5 +21,6 @@ Rel(merchant, payment_system, "Работа с личным кабинетом �
 Rel(payment_system, merchant_system, "Уведомление о статусе платежей", "HTTPS/REST")
 Rel(payment_system, core_banking, "Информация о платежах", "HTTPS/SOAP")
 Rel(payment_system, ext_payment_provider, "Оформление платежа", "HTTPS/REST")
+Rel(ext_payment_provider, payment_system, "Callback платежа", "HTTPS/REST")
 
 @enduml

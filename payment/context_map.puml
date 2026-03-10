@@ -5,11 +5,13 @@ title Context Map
 ' BC
 rectangle "Customer BC" as customer
 rectangle "Wallet BC" as wallet
-rectangle "Payments BC" as payments
+rectangle "Transaction BC" as payments
 rectangle "Notifications BC" as notifications
 rectangle "Anti-Fraud / Scoring BC" as anti_fraud
 rectangle "Merchant BC" as merchant
 rectangle "Auth BC" as auth
+rectangle "Orchestrator BC" as orchestrator
+rectangle "Callback Provider BC" as callback_provider
 
 ' Внешние сервисы
 rectangle "Платёжный провайдер Ext" as payment_provider
@@ -17,7 +19,10 @@ rectangle "Мерчанты Ext" as merchant_ext
 rectangle "Core Banking Ext" as core_banking
 
 ' Связи
-payments --> wallet: U/D C/S
+orchestrator --> payments: U/D C/S
+orchestrator --> wallet: U/D C/S
+payments --> wallet: U/D P/L
+wallet --> payments: U/D P/L
 payments --> core_banking: U/D ACL
 payments --> notifications: U/D PL
 payments --> anti_fraud: U/D C/S
@@ -29,4 +34,5 @@ payments --> payment_provider: U/D OHS PL
 anti_fraud --> wallet: U/D C/S
 customer --> auth: U/D C/S
 merchant --> auth: U/D C/S
+callback_provider --> payments: U/D P/L
 @enduml

@@ -1,0 +1,95 @@
+@startuml
+title Sequence: Основной успешный сценарий
+
+actor client
+participant "API Gateway" as api_gateway
+participant "Orchestrator" as orchestrator
+participant "Wallet Service" as wallet_service
+database "Wallet DB" as wallet_db
+participant "Debezium For Kafka" as kafka_debezium
+queue "Kafka" as kafka
+participant "Transaction Service" as transaction_service
+database "Transaction DB" as transaction_db
+participant "Banking Core" as banking_core
+participant "Payment Provider" as payment_provider
+participant "Callback Provider Service" as callback_provider_service
+participant "Debezium For Rabbit" as rabbit_debezium
+queue "RabbitMq" as rabbit
+participant "Notification Service" as notification_service
+participant "Transaction Query Service" as transaction_query_service
+database "ElasticSearch" as elasticsearch
+
+== Инициализация платежа ==
+client -> api_gateway: Провести платеж
+api_gateway -> api_gateway: Аутентификация, Rate Limiting, Circuit Breaker
+api_gateway -> orchestrator: Маршрутизация запроса
+orchestrator -> wallet_service: Провести платеж
+wallet_service -> wallet_db: Select баланса
+wallet_db -> wallet_service: баланс пользователя
+wallet_service -> wallet_db: резервирование суммы на балансе
+wallet_service -> wallet_db: создание записи в outbox PaymentInitiated 
+wallet_service -> client: Ответ об инициализации платежа
+
+== Обработка PaymentInitiated outbox ==
+kafka_debezium -> wallet_db: Вычитывает PaymentInitiated события
+wallet_db -> kafka_debezium: Возвращает PaymentInitiated события из WAL журнала
+kafka_debezium -> kafka: Кладет PaymentInitiated событие в Kafka
+
+== Обработка PaymentInitiated в Transaction Query ==
+transaction_query_service -> kafka: Получить PaymentInitiated события
+kafka -> transaction_query_service: Возвращает PaymentInitiated события
+transaction_query_service -> elasticsearch: Соранить информацию о платеже
+
+== Обработка платежа Transaction Service ==
+transaction_service -> kafka: Получить PaymentInitiated события
+kafka -> transaction_service: Возвращает PaymentInitiated события
+transaction_service -> banking_core: Бух учет платежа
+banking_core -> transaction_service: OK ответ
+transaction_service -> payment_provider: Отправил запрос внешнему провайдеру на создание платежа
+payment_provider -> transaction_service: Возвращает внутренний paymentId
+transaction_service -> transaction_db: сохранить платеж с paymentId от провайдера
+
+== Получение и обработка Callback от Payment Provider ==
+payment_provider -> api_gateway: Callback с результатом оформления платежа
+api_gateway -> api_gateway: Rate Limiting
+api_gateway -> callback_provider_service: Callback с результатом оформления платежа
+callback_provider_service -> callback_provider_service: Валидация HMAC
+callback_provider_service -> transaction_service: Отправляет успешный результат работы платежного провайдера
+
+== Обработка платежа Transaction Service после ответа провайдера ==
+transaction_service -> transaction_db: Обновить статус платежа на обработано провайдером
+transaction_service -> transaction_db: создание записи в outbox PaymentResult
+
+== Обработка PaymentResult outbox ==
+kafka_debezium -> transaction_db: Вычитывает PaymentResult события
+transaction_db -> kafka_debezium: Возвращает PaymentResult события из WAL журнала
+kafka_debezium -> kafka: Кладет PaymentResult событие в Kafka
+
+== Обработка PaymentResult в Wallet Service ==
+wallet_service -> kafka: Получить PaymentResult событие
+kafka -> wallet_service: Возвращает PaymentResult событие
+wallet_service -> wallet_db: Перевести зарезервированный баланс в COMPLETED
+wallet_service -> wallet_db: Создание записи в outbox PaymentCompleted 
+wallet_service -> wallet_db: Создание записи в outbox NotificationSent
+
+== Обработка NotificationSent outbox ==
+rabbit_debezium -> wallet_db: Вычитывает NotificationSent события
+wallet_db -> rabbit_debezium: Возвращает NotificationSent события из WAL журнала
+rabbit_debezium -> rabbit: Кладет NotificationSent событие в RabbitMQ
+
+== Обработка NotificationSent ==
+notification_service -> rabbit: Получить NotificationSent событие
+rabbit -> notification_service: Возвращает NotificationSent событие
+notification_service -> client: Отправляет уведомление пользователю
+
+== Обработка PaymentCompleted outbox ==
+kafka_debezium -> wallet_db: Вычитывает PaymentCompleted события
+wallet_db -> kafka_debezium: Возвращает PaymentCompleted события из WAL журнала
+kafka_debezium -> kafka: Кладет PaymentCompleted событие в Kafka
+
+== Обработка PaymentCompleted в Transaction Query ==
+transaction_query_service -> kafka: Получить PaymentCompleted события
+kafka -> transaction_query_service: Возвращает PaymentCompleted события
+transaction_query_service -> elasticsearch: Обновить информацию о платеже
+
+@enduml
