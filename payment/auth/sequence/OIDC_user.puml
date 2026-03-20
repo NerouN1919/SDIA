@@ -1,0 +1,45 @@
+@startuml
+title Sequence: OIDC flow для физ лиц
+
+actor client
+participant "Browser" as front
+participant "API Gateway" as api_gateway
+participant "IdP Service" as idp_service
+
+participant "Redis" as cache
+participant "Orchestrator" as orchestrator
+participant "Transaction Query Service" as transaction_query_service
+
+client -> front: Открыть сайт
+front -> api_gateway: Запросы к бэкенду
+api_gateway -> cache: Получить токены по сессии
+cache -> api_gateway: Сессия не найдена
+api_gateway -> front: Редирект на страницу логина IdP
+front -> idp_service: Получить страницу логина
+idp_service -> front: Возвращает страницу логина
+client -> front: Заполняем форму логина и отправляет запрос
+front -> idp_service: запрос AuthN
+idp_service -> front: редирект на основную страницу с AUTH_CODE в параметрах запроса
+front -> api_gateway: callback с AUTH_CODE
+api_gateway -> idp_service: Получить access/refresh токены по AUTH_CODE
+idp_service -> api_gateway: Возвращает токены
+api_gateway -> cache: Сохранить токены по сессии
+api_gateway -> front: Редирект на основную страницу с проставлением сессии в куки
+ 
+
+== Запрос на получение платежей ==
+client -> front: Открывает страницу платежей
+front -> api_gateway: запрос на поиск платежей
+api_gateway -> cache: Получить access и refresh токены по сессии
+cache -> api_gateway: Возвращает токены по сессии
+api_gateway -> api_gateway: Успешно проверяет JWT токен
+api_gateway -> orchestrator: Маршрутизация запроса с встроенным JWT токеном
+orchestrator -> orchestrator: AuthZ
+orchestrator -> transaction_query_service: Запрос на получение платежей с встроенным JWT
+transaction_query_service -> transaction_query_service: AuthZ
+transaction_query_service -> orchestrator: Возвращает платежи
+orchestrator -> api_gateway: Возвращает платежи
+api_gateway -> front: Возвращает платежи
+front -> client: Отображает платежи на сайте
+
+@enduml

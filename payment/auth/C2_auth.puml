@@ -1,0 +1,24 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title С2 - AuthN/AuthZ
+
+Container(users_front, "Web-Front", "SPA/React", "Веб-интерфейс для физ лиц")
+Container(api_gateway, "API Gateway", "Traefik", "Шлюз API - AuthN")
+Container(idp, "IdP Service", "Keycloak", "Управление AuthN и AuthZ")
+Container(cache, "Cache Service", "Redis", "Хранение токенов по id сессии")
+Container(orchestrator_service, "Orchestrator-Service", "Java/Spring", "Маршрутизации CQRS")
+Container(transaction_query_service, "Transaction Query Service", "Java/Spring", "API для read запросов платежей")
+System_Ext(merchant_system, "Мерчант-сервисы", "Внешние системы-мерчанты")
+Container(merchant_service, "Merchant Service", "Java/Spring", "API для мерчантов")
+
+
+Rel(users_front, api_gateway, "Запросы сервисам", "HTTPS/REST")
+Rel(api_gateway, idp, "Аутентификация пользователей", "HTTPS/REST")
+Rel(api_gateway, cache, "Запрос токенов по сессии", "RESP")
+Rel(api_gateway, orchestrator_service, "Маршрутизация аутентифицированных запросов пользователей с JWT", "HTTPS/REST")
+Rel(orchestrator_service, transaction_query_service, "Запросы для Read модели платежей с JWT", "HTTPS/REST")
+Rel(merchant_system, idp, "Запросы мерчантов с merchant id и secret ключом для AuthN получения JWT", "HTTPS/REST")
+Rel(merchant_system, api_gateway, "Запросы мерчантов с JWT", "HTTPS/REST")
+Rel(api_gateway, merchant_service, "Маршрутизация запросов мерчантов с JWT", "HTTPS/REST")
+@enduml
