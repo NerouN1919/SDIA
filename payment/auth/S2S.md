@@ -1,8 +1,8 @@
 # Service-to-service security
 
-Сервисы вызывают друг друга с проверкой mTLS для задача по cron, без участия пользователя  
+Сервисы вызывают друг друга с проверкой mTLS
 Каждому сервисы выдаётся свой собственный сертификат для идентификации сервиса. Еще до передачи данных сервисы сверяют свертефикаты и принимает, либо же отклоняет запрос.  
-Для вызовов пользователя используется token propagation, то есть мы вместе с запросом в заголовках передаем JWT токен для последующих AuthZ  
+Для вызовов пользователя используется token propagation, то есть мы вместе с запросом в заголовках передаем JWT токен(внутренний токен для межсервисного взаимодейтсвия) для последующих AuthZ  
 
 Callback → Transaction - token propagation  
 Orchestrator → Transaction - token propagation  
@@ -14,12 +14,12 @@ Antifraud → Wallet - mTLS
 ## Таблица доверия
 | Кто кого вызывает | Каким токеном | Где проверяется | Scopes / Roles |
 |---|---|---|---|
-| Callback → Transaction|JWT access token | Transaction  |EXT_SYSTEM  |
-| Orchestrator → Transaction|JWT access token |Transaction |USER,ADMIN|
-| Orchestrator → Wallet|JWT access token |Wallet |USER,ADMIN |
-| Orchestrator → Transaction Query|JWT access token |Transaction Query |USER,ADMIN |
-| Wallet → User|JWT access token |User |USER,ADMIN |
-| Antifraud → Wallet|mTLS |на стороне Wallet при запросе |Без роли|
+| Callback → Transaction|JWT access token + mTls| Transaction  |EXT_SYSTEM  |
+| Orchestrator → Transaction|JWT access token + mTls |Transaction |SERVICE|
+| Orchestrator → Wallet|JWT access token + mTls |Wallet |SERVICE |
+| Orchestrator → Transaction Query|JWT access token + mTls |Transaction Query |SERVICE |
+| Wallet → User|JWT access token + mTls|User |SERVICE |
+| Antifraud → Wallet|mTLS |на стороне Wallet при запросе |SERVICE|
 
 # 12 factor
 

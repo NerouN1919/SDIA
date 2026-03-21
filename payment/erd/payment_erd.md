@@ -4,6 +4,7 @@ Table payments {
   provider_payment_id uuid
   wallet_transaction_id uuid [not null]
   amount DECIMAL(19,2) [not null]
+  provider_fee_amount DECIMAL(19,2)
   status varchar [not null, note: 'PENDING, PROVIDER_PROCESSED, COMPLETED, FAILED']
   created_at timestamp [not null]
   updated_at timestamp [not null]

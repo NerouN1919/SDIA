@@ -1,0 +1,79 @@
+stages:
+  - build
+  - test
+  - static_checks
+  - image_build
+  - update_manifest
+  - deploy
+
+variables:
+  IMAGE: registry.gitlab.com/$CI_PROJECT_PATH
+  TAG: $CI_COMMIT_SHORT_SHA
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  ARGOCD_APP: wallet-service
+
+cache:
+  paths: 
+    - .m2/repository/
+
+build:
+  stage: build
+  image: maven:3.9-eclipse-temurin-21
+  script:
+    - mvn package -DskipTests -B
+  artifacts:
+    paths:
+      - target/*.jar
+    expire_in: 1h
+
+test:
+  stage: test
+  image: maven:3.9-eclipse-temurin-21
+  script:
+    - mvn test
+
+static_checks:
+  stage: static_checks
+  image: maven:3.9-eclipse-temurin-21
+  script:
+    - mvn checkstyle:check
+    - mvn spotbugs:check
+  allow_failure: true
+  
+image_build:
+  stage: image_build
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $IMAGE:$TAG .
+    - docker push $IMAGE:$TAG
+  only:
+    - main
+
+update_manifest:
+  stage: update_manifest
+  image: alpine/git
+  script:
+    - apk add --no-cache yq
+    - git clone https://deploy-token:${DEPLOY_TOKEN}@gitlab.com/payment-system/k8s-manifests.git
+    - cd k8s-manifests/apps/$ARGOCD_APP
+    - yq -i ".image.tag = \"$TAG\"" values.yaml
+    - git config user.email "ci@gitlab.com"
+    - git config user.name "GitLab CI"
+    - git add .
+    - git commit -m "deploy $ARGOCD_APP $TAG"
+    - git push
+  only:
+    - main
+
+deploy:
+  stage: deploy
+  image: argoproj/argocd:latest
+  script:
+    - argocd login $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --insecure
+    - argocd app sync $ARGOCD_APP
+    - argocd app wait $ARGOCD_APP --health --timeout 300
+  only:
+    - main

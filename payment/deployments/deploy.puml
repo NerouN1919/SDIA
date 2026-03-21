@@ -1,0 +1,29 @@
+@startuml
+title Sequence: Деплой Canary
+
+participant "Git" as git
+participant "Pipeline" as pipeline
+participant "Registry" as registry
+participant "Argo" as argo
+participant "Rollout" as rollout
+participant "Prometheus" as prometheus
+participant "API Gateway" as weights
+participant "Kuber" as kuber
+
+git -> git: Пуш кода в git
+git -> pipeline: Триггер пайплайна
+pipeline -> registry: Пуш образа
+pipeline -> git: Обновление манифестов
+argo -> git: Получает изменение манифестов
+argo -> kuber: Обновление манифестов
+rollout -> kuber: Получение события об изменении манифестов
+rollout -> prometheus: Проверка SLI
+rollout -> kuber: Устанавливает ReplicaSet Canary в 10%
+rollout -> weights: Устаналивает балансировку запросов на Canary pods на 10%
+rollout -> rollout: ожидание 5 минут
+rollout -> prometheus: Проверка SLI
+rollout -> rollout: Проверка SLI провалена
+rollout -> kuber: Устанавливает ReplicaSet Canary в 0%
+rollout -> weights: Устаналивает балансировку запросов на Canary pods на 0%
+
+@enduml

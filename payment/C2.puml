@@ -25,8 +25,7 @@ Boundary(payment_system, "") {
   }
 
   Boundary(auth_bc, "Auth BC") {
-    Container(auth_service, "Auth Service", "Java/Spring", "Сервис авторизации/аутентификации")
-    ContainerDb(auth_db, "Auth DB", "PostgreSQL", "База данных авторизации/аутентификации")
+    Container(idp, "IdP Service", "Keycloak", "Управление AuthN и AuthZ")
   }
 
   Boundary(customer_bc, "Customer BC") {
@@ -79,6 +78,8 @@ Boundary(payment_system, "") {
     Container(callback_provider_service, "Callback Provider Service", "Java/Spring", "Callback API для провайдеров")
     ContainerDb(callback_provider_db, "Callback Provider DB", "PostgreSQL", "Данные о платежах, направленных к провайдеру")
   }
+
+  Container(feature_flag_service, "Feature Flag Service", "Unleash", "Сервис управлениями флагами фич")
 } 
 
 ' Внешние системы
@@ -87,6 +88,7 @@ System_Ext(merchant_system, "Мерчант-сервисы", "Внешние с�
 System_Ext(ext_payment_provider, "Платёжный провайдер", "Карточный процессинг/СБП")
 
 ' Связи
+Rel(merchant_system, idp, "Запросы мерчантов с merchant id и secret ключом для AuthN получения JWT", "HTTPS/REST")
 Rel(users_front, api_gateway, "API вызовы", "HTTPS/REST")
 Rel(merchant_front, api_gateway, "API вызовы", "HTTPS/REST")
 Rel(client, users_front, "Работа с пользователями/платежами", "HTTPS/REST")
@@ -102,11 +104,11 @@ Rel(ext_payment_provider, api_gateway, "Callback по платежу", "HTTPS/RE
 Rel(merchant_callback_service, merchant_service, "Получение Callback URL", "HTTPS/gRpc")
 Rel(merchant_callback_service, kafka, "Получение статуса платежа", "TLS/TCP")
 Rel(merchant_callback_service, merchant_system, "Callback о платеже", "HTTPS/REST")
-Rel(merchant_service, auth_service, "Регистрация", "HTTPS/gRpc")
+Rel(merchant_service, idp, "Регистрация", "HTTPS/REST")
 Rel(merchant_service, merchant_db, "Данные мерчантов", "JDBC")
 
 ' User BC
-Rel(users_service, auth_service, "Регистрация", "HTTPS/gRpc")
+Rel(users_service, idp, "Регистрация", "HTTPS/REST")
 Rel(users_service, users_db, "Данные о пользователе", "JDBC")
 
 ' Wallet BC
@@ -124,6 +126,7 @@ Rel(analytic_transaction_service, transaction_query_service, "Данные о п
 Rel(transaction_service, transaction_db, "Данные состояния платежей", "JDBC")
 Rel(transaction_query_service, transaction_query_db, "Данные о платежах", "HTTPS/REST")
 Rel(transaction_query_service, kafka, "Получает события PaymentInitiated, PaymentCompleted, PaymentFailed")
+Rel(transaction_service, feature_flag_service, "Получение флага для provider_fee_amount")
 
 ' Связи Antifraud BC
 Rel(antifraud_service, kafka, "Получить сообщение о платеже", "TLS/TCP")
@@ -132,8 +135,9 @@ Rel(antifraud_service, wallet_service, "Блокировка счёта", "HTTPS
 'Связи Gateway
 Rel(api_gateway, users_service, "Пересылает запросы ЛК пользователя", "HTTPS/REST")
 Rel(api_gateway, orchestrator_bc, "Пересылает запросы", "HTTPS/REST")
-Rel(api_gateway, auth_service, "Аутентификация", "HTTPS/gRpc")
 Rel(api_gateway, callback_provider_service, "Пересылает запросы", "HTTPS/REST")
+Rel(api_gateway, redis, "Запрос токенов по сессии, проверка eventId", "RESP")
+Rel(api_gateway, idp, "Аутентификация пользователей, запрос token exchange", "HTTPS/REST")
 
 ' Связи Orchestrator BC
 Rel(orchestrator_service, camunda, "Проверяет наличие задач для обработки", "HTTPS/gRpc")
@@ -158,7 +162,6 @@ Rel(callback_provider_service, callback_provider_db, "Сохраняет дан�
 
 ' Связи БД
 Rel(antifraud_service, antifraud_db, "Данные результата проверки", "DB-API 2.0")
-Rel(auth_service, auth_db, "Креды пользователей", "JDBC")
 
 ' Связи Cache
 Rel(transaction_query_service, redis, "Сохранить/Получить данные из кеша о платежах", "RESP")

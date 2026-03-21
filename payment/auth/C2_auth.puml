@@ -14,7 +14,7 @@ Container(merchant_service, "Merchant Service", "Java/Spring", "API для ме�
 
 
 Rel(users_front, api_gateway, "Запросы сервисам", "HTTPS/REST")
-Rel(api_gateway, idp, "Аутентификация пользователей", "HTTPS/REST")
+Rel(api_gateway, idp, "Аутентификация пользователей, запрос token exchange", "HTTPS/REST")
 Rel(api_gateway, cache, "Запрос токенов по сессии", "RESP")
 Rel(api_gateway, orchestrator_service, "Маршрутизация аутентифицированных запросов пользователей с JWT", "HTTPS/REST")
 Rel(orchestrator_service, transaction_query_service, "Запросы для Read модели платежей с JWT", "HTTPS/REST")

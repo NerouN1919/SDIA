@@ -1,0 +1,18 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title С2 - Deploy
+
+Container(gitlab_ci, "CI", "Gitlab", "Автоматизация сборки и деплоя")
+Container(registry, "Image Registry", "GitLab Container Registry", "Хранилище Docker образов")
+Container(argo, "CD", "Argo", "GitOps для деплоя Kubernetes")
+Container(argo_rollouts, "Rollouts", "Argo Rollouts", "Управление стратегиями деплоя")
+Container(api_gateway, "API Gateway", "Traefik", "API шлюз, балансировщик")
+Container(kuber, "Kubernetest", "k8s", "Оркестратор контейнеров")
+
+Rel(gitlab_ci, registry, "Пуш образа в registry")
+Rel(argo, kuber, "Обновление k8s манифестов")
+Rel(argo_rollouts, kuber, "Получение события об изменении манифестов и управление ReplicaSet")
+Rel(argo_rollouts, api_gateway, "Устанвока процента распределения запроса на реплики")
+Rel(kuber, registry, "Получение образа")
+@enduml
