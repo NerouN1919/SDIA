@@ -2,23 +2,23 @@
 
 Сервисы вызывают друг друга с проверкой mTLS
 Каждому сервисы выдаётся свой собственный сертификат для идентификации сервиса. Еще до передачи данных сервисы сверяют свертефикаты и принимает, либо же отклоняет запрос.  
-Для вызовов пользователя используется token propagation, то есть мы вместе с запросом в заголовках передаем JWT токен(внутренний токен для межсервисного взаимодейтсвия) для последующих AuthZ  
+Для вызовов пользователя используется service JWT, то есть мы вместе с запросом в заголовках передаем JWT токен(внутренний токен для межсервисного взаимодейтсвия) для последующих AuthZ  
 
-Callback → Transaction - token propagation  
-Orchestrator → Transaction - token propagation  
-Orchestrator → Wallet - token propagation  
-Orchestrator → Transaction Query - token propagation  
-Wallet → User - token propagation  
+Callback → Transaction - service JWT  
+Orchestrator → Transaction - service JWT  
+Orchestrator → Wallet - service JWT  
+Orchestrator → Transaction Query - service JWT  
+Wallet → User - service JWT  
 Antifraud → Wallet - mTLS  
 
 ## Таблица доверия
 | Кто кого вызывает | Каким токеном | Где проверяется | Scopes / Roles |
 |---|---|---|---|
-| Callback → Transaction|JWT access token + mTls| Transaction  |EXT_SYSTEM  |
-| Orchestrator → Transaction|JWT access token + mTls |Transaction |SERVICE|
-| Orchestrator → Wallet|JWT access token + mTls |Wallet |SERVICE |
-| Orchestrator → Transaction Query|JWT access token + mTls |Transaction Query |SERVICE |
-| Wallet → User|JWT access token + mTls|User |SERVICE |
+| Callback → Transaction|Service JWT| Transaction  |EXT_SYSTEM  |
+| Orchestrator → Transaction|Service JWT |Transaction |SERVICE|
+| Orchestrator → Wallet|Service JWT |Wallet |SERVICE |
+| Orchestrator → Transaction Query|Service JWT |Transaction Query |SERVICE |
+| Wallet → User|Service JWT|User |SERVICE |
 | Antifraud → Wallet|mTLS |на стороне Wallet при запросе |SERVICE|
 
 # 12 factor

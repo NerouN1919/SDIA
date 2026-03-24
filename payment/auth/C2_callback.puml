@@ -12,6 +12,6 @@ Container(replay_store, "Replay Store", "Redis", "БД для проверки �
 Rel(ext_payment_provider, api_gateway, "Запрос об успешном проведении платежа", "HTTPS/REST")
 Rel(api_gateway, callback_provider_service, "Маршрутизация проверенного запроса", "HTTPS/REST")
 Rel(api_gateway, replay_store, "Получение данных по eventId", "RESP")
-Rel(callback_provider_service, transaction_service, "Запрос об успешном проведении платежа", "HTTPS/gRpc")
+Rel(callback_provider_service, transaction_service, "Запрос об успешном проведении платежа", "gRpc")
 
 @enduml

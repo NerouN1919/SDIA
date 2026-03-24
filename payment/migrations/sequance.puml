@@ -7,8 +7,8 @@ participant "Feature Flag Service" as feature_flag_service
 participant "DB" as db
 
 == Миграция ==
-devops -> feature_flag_service: высталвение feature flag для provider_fee_amount в true
 transaction_service -> db: Выполнение миграции добавления нового поля
+devops -> feature_flag_service: высталвение feature flag для provider_fee_amount в true
 
 == Работа с платежом ==
 transaction_service -> feature_flag_service: получает feature flag для provider_fee_amount

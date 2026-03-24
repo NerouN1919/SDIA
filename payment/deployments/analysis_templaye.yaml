@@ -1,0 +1,80 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: wallet-service-sli
+  namespace: default
+spec:
+  args:
+    - name: wallet-service-canary
+  metrics:
+    - name: success-rate
+      successCondition: result[0] >= 0.995
+      failureLimit: 2
+      interval: 60s
+      count: 5
+      provider:
+        prometheus:
+          address: http://prometheus:9090
+          query: |
+            sum(
+              rate(
+                http_server_requests_seconds_count{
+                  service="{{args.service}}",
+                  status!~"5.."
+                }[5m]
+              )
+            )
+            /
+            sum(
+              rate(
+                http_server_requests_seconds_count{
+                  service="{{args.service}}"
+                }[5m]
+              )
+            )
+
+    - name: payment-latency-p99
+      successCondition: result[0] <= 45
+      failureLimit: 2
+      interval: 60s
+      count: 5
+      provider:
+        prometheus:
+          address: http://prometheus:9090
+          query: |
+            histogram_quantile(
+              0.99,
+              sum(
+                rate(
+                  payment_processing_duration_seconds_bucket{
+                    service="{{args.service}}"
+                  }[5m]
+                )
+              ) by (le)
+            )
+
+    - name: payment-success-rate
+      successCondition: result[0] >= 0.99
+      failureLimit: 2
+      interval: 60s
+      count: 5
+      provider:
+        prometheus:
+          address: http://prometheus:9090
+          query: |
+            sum(
+              rate(
+                payment_status_total{
+                  service="{{args.service}}",
+                  status="success"
+                }[5m]
+              )
+            )
+            /
+            sum(
+              rate(
+                payment_status_total{
+                  service="{{args.service}}"
+                }[5m]
+              )
+            )
