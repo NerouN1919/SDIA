@@ -1,0 +1,15 @@
+@startuml
+title Sequence: Защита от replay HMAC
+
+participant "Payment Provider" as payment_provider
+participant "API Gateway" as gateway
+participant "Replay Store" as cache
+participant "Callback Service" as callback_service
+
+payment_provider -> gateway: Запрос об успешном проведении платежа
+gateway -> gateway: Успешная проверка HMAC
+gateway -> gateway: Успешная проверка timestamp
+gateway -> cache: Получение данных по eventId
+cache -> gateway: Найдена запись
+gateway -> payment_provider: 200: без обработки
+@enduml

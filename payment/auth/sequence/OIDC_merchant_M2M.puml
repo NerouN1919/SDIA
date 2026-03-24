@@ -1,0 +1,21 @@
+@startuml
+title Sequence: OAuth для M2M мерчантов
+
+participant "Merchant Ext" as merchant
+participant "API Gateway" as api_gateway
+participant "IdP Service" as idp_service
+participant "Merchant Service" as merchant_service
+
+== Получение токена ==
+merchant -> idp_service: Запрос на получение токена по id клиента и secret key
+idp_service -> merchant: Возвращает JWT токен
+
+== Запрос на внутренний сервис ==
+merchant -> api_gateway: запрос с JWT в хэдерах
+api_gateway -> api_gateway: валидация JWT по кешированному JWKS ключу
+api_gateway -> merchant_service: Маршрутизация запроса
+merchant_service -> merchant_service: AuthZ
+merchant_service -> api_gateway: Успешный ответ
+api_gateway -> merchant: Успешный ответ
+
+@enduml

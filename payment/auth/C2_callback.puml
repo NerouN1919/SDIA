@@ -1,0 +1,17 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title С2 - Callback Security
+
+System_Ext(ext_payment_provider, "Платёжный провайдер", "Карточный процессинг/СБП")
+Container(api_gateway, "API Gateway", "Traefik", "Проверка HMAC")
+Container(callback_provider_service, "Callback Provider Service", "Java/Spring", "Callback API для провайдеров")
+Container(transaction_service, "Transaction Service", "Java/Spring", "API для платежей")
+Container(replay_store, "Replay Store", "Redis", "БД для проверки реплаев")
+
+Rel(ext_payment_provider, api_gateway, "Запрос об успешном проведении платежа", "HTTPS/REST")
+Rel(api_gateway, callback_provider_service, "Маршрутизация проверенного запроса", "HTTPS/REST")
+Rel(api_gateway, replay_store, "Получение данных по eventId", "RESP")
+Rel(callback_provider_service, transaction_service, "Запрос об успешном проведении платежа", "gRpc")
+
+@enduml

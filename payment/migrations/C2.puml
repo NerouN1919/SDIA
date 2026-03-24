@@ -1,0 +1,12 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title С2 - Migration
+
+Container(transaction_service, "Transaction Service", "Java/Spring", "Сервис работы с платежами с внутренними миграциями")
+Container(feature_flag_service, "Feature Flag Service", "Unleash", "Сервис управлениями флагами фич")
+ContainerDb(db, "Database", "PostgreSQL", "БД для платежей")
+
+Rel(transaction_service, feature_flag_service, "Получение флага для provider_fee_amount")
+Rel(transaction_service, db, "Выполнение миграции")
+@enduml

@@ -1,0 +1,30 @@
+@startuml
+title Sequence: Migrations, добавление provider_fee_amount
+
+actor "DevOps" as devops
+participant "Transaction Service" as transaction_service
+participant "Feature Flag Service" as feature_flag_service
+participant "DB" as db
+
+== Миграция ==
+transaction_service -> db: Выполнение миграции добавления нового поля
+devops -> feature_flag_service: высталвение feature flag для provider_fee_amount в true
+
+== Работа с платежом ==
+transaction_service -> feature_flag_service: получает feature flag для provider_fee_amount
+feature_flag_service -> transaction_service: возвращает флаг true
+transaction_service -> db: Пишет с provider_fee_amount
+transaction_service -> db: Получение платежа с provider_fee_amount
+
+== Нестабильно работает - отключаем feature flag ==
+devops -> feature_flag_service: высталвение feature flag для provider_fee_amount в false
+transaction_service -> feature_flag_service: получает feature flag для provider_fee_amount
+feature_flag_service -> transaction_service: возвращает флаг false
+transaction_service -> db: Пишет без provider_fee_amount
+transaction_service -> db: Получение платежа без provider_fee_amount
+
+== Стабилизировали - отключаем feature flag ==
+devops -> feature_flag_service: убираем feature flag
+transaction_service -> db: Пишет с provider_fee_amount
+transaction_service -> db: Получение платежа с provider_fee_amount
+@enduml
