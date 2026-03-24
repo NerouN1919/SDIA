@@ -1,0 +1,25 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title С3 - Observability системы на примере Transaction Service
+
+Boundary(transaction, "Transaction контейнер") {
+  Component(transaction_service, "Transaction Service", "Java/Spring", "Сервис обработки платежей")
+  Container(opentelemetry, "OpenTelemetry", "OTel Java Agent", "Сборщик трейсов")
+  ContainerDb(log_volume, "Log Volume", "Docker Volume", "stdout/логфайлы контейнеров")
+}
+Container(grafana, "Grafana", "Grafana", "Визуализация метрик, логов, трейсов")
+Container(grafana_alloy, "Grafana Alloy", "Grafana Alloy", "Агент сборка логов")
+Container(loki, "Loki", "Loki", "Хранилище логов")
+Container(tempo, "Tempo", "Tempo", "Хранилище трейсов")
+Container(prometheus, "Prometheus", "Prometheus", "Сбор и хранения метрик")
+
+Rel(grafana_alloy, log_volume, "Считывание логов")
+Rel(grafana_alloy, loki, "Отправляем логи на сохранение")
+Rel(grafana, loki, "Получить логи для отображения")
+Rel(opentelemetry, transaction_service, "Считывание трейсов")
+Rel(opentelemetry, tempo, "отправляем трейсы на сохранение")
+Rel(grafana, tempo, "Получить трейсы для отображения")
+Rel(prometheus, transaction_service, "Вызов эндпоинтов для составления метрик")
+Rel(grafana, prometheus, "Получить метрики для отображения дашбордов")
+@enduml

@@ -16,6 +16,7 @@ Table payment_outbox {
   payload jsonb [not null]
   event_type varchar [not null, note: 'PaymentResult']
   created_at timestamp [not null]
+  trace_id uuid
 }
 
 Ref: payment_outbox.payment_id > payments.id

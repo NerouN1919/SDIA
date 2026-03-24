@@ -1,0 +1,24 @@
+@startuml
+title Sequence: Просмотр истории платежей
+skinparam defaultFontSize 12
+skinparam padding 2
+
+actor client
+participant "API Gateway" as api_gateway
+participant "Orchestrator" as orchestrator
+participant "Transaction Query Service" as transaction_query_service
+participant "Redis" as redis
+database "ElasticSearch" as elasticsearch
+
+client -> api_gateway: Запрос на историю платежей
+api_gateway -> orchestrator: Маршрутизация запроса
+orchestrator -> transaction_query_service: Маршртизация на read модель
+transaction_query_service -> redis: Проверка hit в кэше
+redis -> transaction_query_service: В кэше не нашлось данных
+transaction_query_service -> elasticsearch: Поиск данных в БД
+elasticsearch -> transaction_query_service: Возвращает найденные данные
+transaction_query_service -> redis: Записывает найденные данные в кэш
+transaction_query_service -> orchestrator: Возвращаем ответ
+orchestrator -> api_gateway: Возвраащем ответ
+api_gateway -> client: Возвращаем ответ пользователю
+@enduml
